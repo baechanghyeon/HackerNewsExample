@@ -1,6 +1,21 @@
-const container = document.getElementById("root");
-const ajax = new XMLHttpRequest();
-const content = document.createElement("div");
+type Store = {
+  currentPage: number;
+  feeds: NewsFeed[];
+};
+
+type NewsFeed = {
+  id: number;
+  comments_count: number;
+  url: string;
+  user: string;
+  time_ago: string;
+  points: number;
+  title: string;
+  read?: boolean; // optional
+};
+
+const container: HTMLElement | null = document.getElementById("root");
+const ajax: XMLHttpRequest = new XMLHttpRequest();
 const NEWS_URL = "https://api.hnpwa.com/v0/news/1.json";
 const CONTENT_URL = "https://api.hnpwa.com/v0/item/@id.json";
 
@@ -8,7 +23,8 @@ const CONTENT_URL = "https://api.hnpwa.com/v0/item/@id.json";
 
 // currentPage 전역 변수로 설정하여 돌아가기 누를 시 해당 페이지로 이동
 // feeds를 배열로 선언, 여러번의 getData함수 호출을 회피하기 위해 배열 변수를 선언하여 저장
-const store = {
+
+const store: Store = {
   currentPage: 1,
   feeds: [],
 };
@@ -30,9 +46,16 @@ function makeFeeds(feeds) {
   return feeds;
 }
 
+function updateView(html) {
+  if (container) {
+    container.innerHTML = template;
+  } else {
+    console.error("최상위 컨테이너가 없어 UI를 진행하지 못합니다.");
+  }
+}
 // 글 목록 함수
 function newsFeed() {
-  let newsFeed = store.feeds;
+  let newsFeed: NewsFeed[] = store.feeds;
   const newsList = [];
   // template 변수를 선언하여 눈으로 식별하기 쉽도록 html 형식으로 구현 및 값을 전달하여 container에 저장하여 화면에 띄우기
   let template = `
@@ -109,7 +132,7 @@ function newsFeed() {
   );
 
   // template 값은 container 의 div에 삽입하여 화면에 출력
-  container.innerHTML = template;
+  updateView(container);
 }
 
 // 글 세부 내용
@@ -181,9 +204,8 @@ function newsDetail() {
     return commentString.join("");
   }
 
-  container.innerHTML = template.replace(
-    "{{__comments__}}",
-    makeComment(newsContent.comments)
+  updateView(
+    template.replace("{{__comments__}}", makeComment(newsContent.comments))
   );
 }
 
