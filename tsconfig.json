@@ -1,12 +1,11 @@
 {
   "compilerOptions": {
-    "strict": true,
-    "target": "ES5",
-    "module": "CommonJS",
+    "strict": true, //얼마나 엄격하게 변환 시킬 것인가 
+    "module": "CommonJS", 
     "alwaysStrict": true,
     "noImplicitAny": true,
     "noImplicitThis": true,
-    "sourceMap": true,
+    "sourceMap": true, // 연결정보를 갖고 있는 파일을 생성 (자바스크립트 <-> 타입스크립트)
     "downlevelIteration": true
   }
 }
