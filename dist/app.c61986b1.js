@@ -122,7 +122,6 @@ parcelRequire = (function (modules, cache, entry, globalName) {
 
 var container = document.getElementById("root");
 var ajax = new XMLHttpRequest();
-var content = document.createElement("div");
 var NEWS_URL = "https://api.hnpwa.com/v0/news/1.json";
 var CONTENT_URL = "https://api.hnpwa.com/v0/item/@id.json";
 // 중복된 코드를 줄이고 함수를 만들어 후에 변경과 추적이 쉽도록 코드를 작성할 수 있도록 하자.
@@ -146,6 +145,13 @@ function makeFeeds(feeds) {
   }
   return feeds;
 }
+function updateView(html) {
+  if (container) {
+    container.innerHTML = html;
+  } else {
+    console.error("최상위 컨테이너가 없어 UI를 진행하지 못합니다.");
+  }
+}
 // 글 목록 함수
 function newsFeed() {
   var newsFeed = store.feeds;
@@ -164,10 +170,9 @@ function newsFeed() {
   // 이런식의 코드 구현은 자칫 코드양이 늘어남에 따라 코드가 복잡해보이는 단점이 존재한다.
   template = template.replace("{{__news_feed__}}", newsList.join(""));
   // if 조건절을 사용하기 부담스러울 때는 삼항연산자를 활용하여 간단하게 조건절을 줄 것
-  template = template.replace("{{__prev_page__}}", store.currentPage > 1 ? store.currentPage - 1 : 1);
-  template = template.replace("{{__next_page__}}", store.currentPage < 3 ? store.currentPage + 1 : 3);
-  // template 값은 container 의 div에 삽입하여 화면에 출력
-  container.innerHTML = template;
+  template = template.replace("{{__prev_page__}}", String(store.currentPage > 1 ? store.currentPage - 1 : 1));
+  template = template.replace("{{__next_page__}}", String(store.currentPage < 3 ? store.currentPage + 1 : 3));
+  updateView(template);
 }
 // 글 세부 내용
 function newsDetail() {
@@ -183,23 +188,22 @@ function newsDetail() {
       break;
     }
   }
-  // 재귀 호출을 통해 대댓글 보여주기
-  // called props는 대댓글의 depth를 의미한다.
-  function makeComment(comments, called) {
-    if (called === void 0) {
-      called = 0;
+  updateView(template.replace("{{__comments__}}", makeComment(newsContent.comments)));
+}
+// 재귀 호출을 통해 대댓글 보여주기
+// called props는 대댓글의 depth를 의미한다.
+function makeComment(comments) {
+  var commentString = [];
+  for (var i = 0; i < comments.length; i++) {
+    // 중복 방지
+    var comment = comments[i];
+    commentString.push("\n          <div style=\"padding-left: ".concat(comment.level * 40, "px;\" class=\"mt-4\">\n            <div class=\"text-gray-400\">\n              <i class=\"fa fa-sort-up mr-2\"></i>\n              <strong>").concat(comment.user, "</strong> ").concat(comment.time_ago, "\n            </div>\n            <p class=\"text-gray-700\">").concat(comment.content, "</p>\n          </div>      \n        "));
+    // 댓글 밑에 대댓글이 존재하면 만족하는 조건절
+    if (comments[i].comments.length > 0) {
+      commentString.push(makeComment(comment.comments));
     }
-    var commentString = [];
-    for (var i = 0; i < comments.length; i++) {
-      commentString.push("\n          <div style=\"padding-left: ".concat(called * 40, "px;\" class=\"mt-4\">\n            <div class=\"text-gray-400\">\n              <i class=\"fa fa-sort-up mr-2\"></i>\n              <strong>").concat(comments[i].user, "</strong> ").concat(comments[i].time_ago, "\n            </div>\n            <p class=\"text-gray-700\">").concat(comments[i].content, "</p>\n          </div>      \n        "));
-      // 댓글 밑에 대댓글이 존재하면 만족하는 조건절
-      if (comments[i].comments.length > 0) {
-        commentString.push(makeComment(comments[i].comments, called + 1));
-      }
-    }
-    return commentString.join("");
   }
-  container.innerHTML = template.replace("{{__comments__}}", makeComment(newsContent.comments));
+  return commentString.join("");
 }
 // 화면 전환 router
 function router() {
@@ -245,7 +249,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "55579" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "56444" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];

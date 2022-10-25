@@ -3,15 +3,28 @@ type Store = {
   feeds: NewsFeed[];
 };
 
-type NewsFeed = {
+type News = {
   id: number;
-  comments_count: number;
+  time_ago: string;
+  title: string;
   url: string;
   user: string;
-  time_ago: string;
+  content: string;
+};
+
+type NewsFeed = News & {
+  comments_count: number;
   points: number;
-  title: string;
   read?: boolean; // optional
+};
+
+type NewsDetail = News & {
+  comments: NewsComment[];
+};
+
+type NewsComment = News & {
+  comments: NewsComment[];
+  level: number;
 };
 
 const container: HTMLElement | null = document.getElementById("root");
@@ -30,7 +43,7 @@ const store: Store = {
 };
 
 // URL data 불러오기
-function getData(url) {
+function getData<AjaxResponse>(url: string): AjaxResponse {
   ajax.open("GET", url, false);
   ajax.send();
 
@@ -39,22 +52,22 @@ function getData(url) {
 
 // 읽은 글은 표시해주기  white => yellow
 // 글 목록 전체 읽음 처리 다 false 로 초기화 시켜주기
-function makeFeeds(feeds) {
+function makeFeeds(feeds: NewsFeed[]): NewsFeed[] {
   for (let i = 0; i < feeds.length; i++) {
     feeds[i].read = false;
   }
   return feeds;
 }
 
-function updateView(html) {
+function updateView(html: string): void {
   if (container) {
-    container.innerHTML = template;
+    container.innerHTML = html;
   } else {
     console.error("최상위 컨테이너가 없어 UI를 진행하지 못합니다.");
   }
 }
 // 글 목록 함수
-function newsFeed() {
+function newsFeed(): void {
   let newsFeed: NewsFeed[] = store.feeds;
   const newsList = [];
   // template 변수를 선언하여 눈으로 식별하기 쉽도록 html 형식으로 구현 및 값을 전달하여 container에 저장하여 화면에 띄우기
@@ -84,7 +97,7 @@ function newsFeed() {
   `;
   // getData를 한번만 호출하여 불필요한 데이터 통신 줄이기
   if (newsFeed.length === 0) {
-    newsFeed = store.feeds = makeFeeds(getData(NEWS_URL));
+    newsFeed = store.feeds = makeFeeds(getData<NewsFeed[]>(NEWS_URL));
   }
 
   // 페이지 네이션
@@ -123,23 +136,22 @@ function newsFeed() {
   // if 조건절을 사용하기 부담스러울 때는 삼항연산자를 활용하여 간단하게 조건절을 줄 것
   template = template.replace(
     "{{__prev_page__}}",
-    store.currentPage > 1 ? store.currentPage - 1 : 1
+    String(store.currentPage > 1 ? store.currentPage - 1 : 1)
   );
 
   template = template.replace(
     "{{__next_page__}}",
-    store.currentPage < 3 ? store.currentPage + 1 : 3
+    String(store.currentPage < 3 ? store.currentPage + 1 : 3)
   );
 
-  // template 값은 container 의 div에 삽입하여 화면에 출력
-  updateView(container);
+  updateView(template);
 }
 
 // 글 세부 내용
-function newsDetail() {
+function newsDetail(): void {
   const id = location.hash.substr(7);
 
-  const newsContent = getData(CONTENT_URL.replace("@id", id));
+  const newsContent = getData<NewsDetail>(CONTENT_URL.replace("@id", id));
   let template = `
   <div class="bg-gray-600 min-h-screen pb-8">
   <div class="bg-white text-xl">
@@ -178,39 +190,41 @@ function newsDetail() {
       break;
     }
   }
-
-  // 재귀 호출을 통해 대댓글 보여주기
-  // called props는 대댓글의 depth를 의미한다.
-  function makeComment(comments, called = 0) {
-    const commentString = [];
-
-    for (let i = 0; i < comments.length; i++) {
-      commentString.push(`
-          <div style="padding-left: ${called * 40}px;" class="mt-4">
-            <div class="text-gray-400">
-              <i class="fa fa-sort-up mr-2"></i>
-              <strong>${comments[i].user}</strong> ${comments[i].time_ago}
-            </div>
-            <p class="text-gray-700">${comments[i].content}</p>
-          </div>      
-        `);
-
-      // 댓글 밑에 대댓글이 존재하면 만족하는 조건절
-      if (comments[i].comments.length > 0) {
-        commentString.push(makeComment(comments[i].comments, called + 1));
-      }
-    }
-
-    return commentString.join("");
-  }
-
   updateView(
     template.replace("{{__comments__}}", makeComment(newsContent.comments))
   );
 }
 
+// 재귀 호출을 통해 대댓글 보여주기
+// called props는 대댓글의 depth를 의미한다.
+function makeComment(comments: NewsComment[]): string {
+  const commentString = [];
+
+  for (let i = 0; i < comments.length; i++) {
+    // 중복 방지
+    const comment: NewsComment = comments[i];
+
+    commentString.push(`
+          <div style="padding-left: ${comment.level * 40}px;" class="mt-4">
+            <div class="text-gray-400">
+              <i class="fa fa-sort-up mr-2"></i>
+              <strong>${comment.user}</strong> ${comment.time_ago}
+            </div>
+            <p class="text-gray-700">${comment.content}</p>
+          </div>      
+        `);
+
+    // 댓글 밑에 대댓글이 존재하면 만족하는 조건절
+    if (comments[i].comments.length > 0) {
+      commentString.push(makeComment(comment.comments));
+    }
+  }
+
+  return commentString.join("");
+}
+
 // 화면 전환 router
-function router() {
+function router(): void {
   const routePath = location.hash;
   // router에서 # 은 빈값으로 인식하기 때문에 # 뒤에 값이 없을 시 "" 빈 값을 반환한다.
   if (routePath === "") {
