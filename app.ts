@@ -5,30 +5,29 @@ interface Store {
 
 interface News {
   readonly id: number;
-  time_ago: string;
-  title: string;
-  url: string;
-  user: string;
-  content: string;
+  readonly time_ago: string;
+  readonly title: string;
+  readonly url: string;
+  readonly user: string;
+  readonly content: string;
 }
 
 interface NewsFeed extends News {
-  comments_count: number;
-  points: number;
+  readonly comments_count: number;
+  readonly points: number;
   read?: boolean; // optional
 }
 
 interface NewsDetail extends News {
-  comments: NewsComment[];
+  readonly comments: NewsComment[];
 }
 
 interface NewsComment extends News {
-  comments: NewsComment[];
-  level: number;
+  readonly comments: NewsComment[];
+  readonly level: number;
 }
 
 const container: HTMLElement | null = document.getElementById("root");
-const ajax: XMLHttpRequest = new XMLHttpRequest();
 const NEWS_URL = "https://api.hnpwa.com/v0/news/1.json";
 const CONTENT_URL = "https://api.hnpwa.com/v0/item/@id.json";
 
@@ -42,13 +41,66 @@ const store: Store = {
   feeds: [],
 };
 
-// URL data 불러오기
-function getData<AjaxResponse>(url: string): AjaxResponse {
-  ajax.open("GET", url, false);
-  ajax.send();
+// Mixin => 상속을 유연하게 받기 위해 사용
+// Typescript 공식 문서 참고
+function applyApiMixins(targetClass: any, baseClasses: any[]): void {
+  baseClasses.forEach((baseClass) => {
+    Object.getOwnPropertyNames(baseClass.prototype).forEach((name) => {
+      const descriptor = Object.getOwnPropertyDescriptor(
+        baseClass.prototype,
+        name
+      );
 
-  return JSON.parse(ajax.response);
+      if (descriptor) {
+        Object.defineProperty(targetClass.prototype, name, descriptor);
+      }
+    });
+  });
 }
+
+class Api {
+  url: string;
+  ajax: XMLHttpRequest;
+
+  constructor(url: string) {
+    this.url = url;
+    this.ajax = new XMLHttpRequest();
+  }
+
+  getRequest<AjaxResponse>(): AjaxResponse {
+    this.ajax.open("GET", this.url, false);
+    this.ajax.send();
+
+    return JSON.parse(this.ajax.response);
+  }
+}
+
+class NewsFeedApi extends Api {
+  getData(): NewsFeed[] {
+    return this.getRequest<NewsFeed[]>();
+  }
+}
+
+class NewsDetailApi extends Api {
+  getData(): NewsDetail {
+    return this.getRequest<NewsDetail>();
+  }
+}
+
+// // 합성한다는 것을 알려준다.
+// interface NewsFeedApi extends Api {}
+// interface NewsDetailApi extends Api {}
+
+// applyApiMixins(NewsFeedApi, [Api]);
+// applyApiMixins(NewsDetailApi, [Api]);
+
+// URL data 불러오기
+// function getData<AjaxResponse>(url: string): AjaxResponse {
+//   ajax.open("GET", url, false);
+//   ajax.send();
+
+//   return JSON.parse(ajax.response);
+// }
 
 // 읽은 글은 표시해주기  white => yellow
 // 글 목록 전체 읽음 처리 다 false 로 초기화 시켜주기
@@ -68,6 +120,8 @@ function updateView(html: string): void {
 }
 // 글 목록 함수
 function newsFeed(): void {
+  const api = new NewsFeedApi(NEWS_URL);
+
   let newsFeed: NewsFeed[] = store.feeds;
   const newsList = [];
   // template 변수를 선언하여 눈으로 식별하기 쉽도록 html 형식으로 구현 및 값을 전달하여 container에 저장하여 화면에 띄우기
@@ -97,7 +151,7 @@ function newsFeed(): void {
   `;
   // getData를 한번만 호출하여 불필요한 데이터 통신 줄이기
   if (newsFeed.length === 0) {
-    newsFeed = store.feeds = makeFeeds(getData<NewsFeed[]>(NEWS_URL));
+    newsFeed = store.feeds = makeFeeds(api.getData());
   }
 
   // 페이지 네이션
@@ -150,8 +204,8 @@ function newsFeed(): void {
 // 글 세부 내용
 function newsDetail(): void {
   const id = location.hash.substr(7);
-
-  const newsContent = getData<NewsDetail>(CONTENT_URL.replace("@id", id));
+  const api = new NewsDetailApi(CONTENT_URL.replace("@id", id));
+  const newsContent = api.getData();
   let template = `
   <div class="bg-gray-600 min-h-screen pb-8">
   <div class="bg-white text-xl">

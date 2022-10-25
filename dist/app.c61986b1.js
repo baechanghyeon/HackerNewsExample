@@ -120,8 +120,29 @@ parcelRequire = (function (modules, cache, entry, globalName) {
 })({"app.ts":[function(require,module,exports) {
 "use strict";
 
+var __extends = this && this.__extends || function () {
+  var _extendStatics = function extendStatics(d, b) {
+    _extendStatics = Object.setPrototypeOf || {
+      __proto__: []
+    } instanceof Array && function (d, b) {
+      d.__proto__ = b;
+    } || function (d, b) {
+      for (var p in b) {
+        if (Object.prototype.hasOwnProperty.call(b, p)) d[p] = b[p];
+      }
+    };
+    return _extendStatics(d, b);
+  };
+  return function (d, b) {
+    if (typeof b !== "function" && b !== null) throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
+    _extendStatics(d, b);
+    function __() {
+      this.constructor = d;
+    }
+    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+  };
+}();
 var container = document.getElementById("root");
-var ajax = new XMLHttpRequest();
 var NEWS_URL = "https://api.hnpwa.com/v0/news/1.json";
 var CONTENT_URL = "https://api.hnpwa.com/v0/item/@id.json";
 // 중복된 코드를 줄이고 함수를 만들어 후에 변경과 추적이 쉽도록 코드를 작성할 수 있도록 하자.
@@ -131,12 +152,61 @@ var store = {
   currentPage: 1,
   feeds: []
 };
-// URL data 불러오기
-function getData(url) {
-  ajax.open("GET", url, false);
-  ajax.send();
-  return JSON.parse(ajax.response);
+// Mixin => 상속을 유연하게 받기 위해 사용
+// Typescript 공식 문서 참고
+function applyApiMixins(targetClass, baseClasses) {
+  baseClasses.forEach(function (baseClass) {
+    Object.getOwnPropertyNames(baseClass.prototype).forEach(function (name) {
+      var descriptor = Object.getOwnPropertyDescriptor(baseClass.prototype, name);
+      if (descriptor) {
+        Object.defineProperty(targetClass.prototype, name, descriptor);
+      }
+    });
+  });
 }
+var Api = /** @class */function () {
+  function Api(url) {
+    this.url = url;
+    this.ajax = new XMLHttpRequest();
+  }
+  Api.prototype.getRequest = function () {
+    this.ajax.open("GET", this.url, false);
+    this.ajax.send();
+    return JSON.parse(this.ajax.response);
+  };
+  return Api;
+}();
+var NewsFeedApi = /** @class */function (_super) {
+  __extends(NewsFeedApi, _super);
+  function NewsFeedApi() {
+    return _super !== null && _super.apply(this, arguments) || this;
+  }
+  NewsFeedApi.prototype.getData = function () {
+    return this.getRequest();
+  };
+  return NewsFeedApi;
+}(Api);
+var NewsDetailApi = /** @class */function (_super) {
+  __extends(NewsDetailApi, _super);
+  function NewsDetailApi() {
+    return _super !== null && _super.apply(this, arguments) || this;
+  }
+  NewsDetailApi.prototype.getData = function () {
+    return this.getRequest();
+  };
+  return NewsDetailApi;
+}(Api);
+// // 합성한다는 것을 알려준다.
+// interface NewsFeedApi extends Api {}
+// interface NewsDetailApi extends Api {}
+// applyApiMixins(NewsFeedApi, [Api]);
+// applyApiMixins(NewsDetailApi, [Api]);
+// URL data 불러오기
+// function getData<AjaxResponse>(url: string): AjaxResponse {
+//   ajax.open("GET", url, false);
+//   ajax.send();
+//   return JSON.parse(ajax.response);
+// }
 // 읽은 글은 표시해주기  white => yellow
 // 글 목록 전체 읽음 처리 다 false 로 초기화 시켜주기
 function makeFeeds(feeds) {
@@ -154,13 +224,14 @@ function updateView(html) {
 }
 // 글 목록 함수
 function newsFeed() {
+  var api = new NewsFeedApi(NEWS_URL);
   var newsFeed = store.feeds;
   var newsList = [];
   // template 변수를 선언하여 눈으로 식별하기 쉽도록 html 형식으로 구현 및 값을 전달하여 container에 저장하여 화면에 띄우기
   var template = "\n  <div class=\"bg-gray-600 min-h-screen\">\n  <div class=\"bg-white text-xl\">\n    <div class=\"mx-auto px-4\">\n      <div class=\"flex justify-between items-center py-6\">\n        <div class=\"flex justify-start\">\n          <h1 class=\"font-extrabold\">Hacker News</h1>\n        </div>\n        <div class=\"items-center justify-end\">\n          <a href=\"#/page/{{__prev_page__}}\" class=\"text-gray-500\">\n            Previous\n          </a>\n          <a href=\"#/page/{{__next_page__}}\" class=\"text-gray-500 ml-4\">\n            Next\n          </a>\n        </div>\n      </div> \n    </div>\n  </div>\n  <div class=\"p-4 text-2xl text-gray-700\">\n    {{__news_feed__}}        \n  </div>\n</div>\n  ";
   // getData를 한번만 호출하여 불필요한 데이터 통신 줄이기
   if (newsFeed.length === 0) {
-    newsFeed = store.feeds = makeFeeds(getData(NEWS_URL));
+    newsFeed = store.feeds = makeFeeds(api.getData());
   }
   // 페이지 네이션
   for (var i = store.currentPage - 1; i < store.currentPage * 10; i++) {
@@ -177,7 +248,8 @@ function newsFeed() {
 // 글 세부 내용
 function newsDetail() {
   var id = location.hash.substr(7);
-  var newsContent = getData(CONTENT_URL.replace("@id", id));
+  var api = new NewsDetailApi(CONTENT_URL.replace("@id", id));
+  var newsContent = api.getData();
   var template = "\n  <div class=\"bg-gray-600 min-h-screen pb-8\">\n  <div class=\"bg-white text-xl\">\n    <div class=\"mx-auto px-4\">\n      <div class=\"flex justify-between items-center py-6\">\n        <div class=\"flex justify-start\">\n          <h1 class=\"font-extrabold\">Hacker News</h1>\n        </div>\n        <div class=\"items-center justify-end\">\n          <a href=\"#/page/".concat(store.currentPage, "\" class=\"text-gray-500\">\n            <i class=\"fa fa-times\"></i>\n          </a>\n        </div>\n      </div>\n    </div>\n  </div>\n\n  <div class=\"h-full border rounded-xl bg-white m-6 p-4 \">\n    <h2>").concat(newsContent.title, "</h2>\n    <div class=\"text-gray-400 h-20\">\n      ").concat(newsContent.content, "\n    </div>\n\n    {{__comments__}}\n\n  </div>\n</div>\n    ");
   // id 값은 string 이기 때문에 Number로 형 변환
   for (var i = 0; i < store.feeds.length; i++) {
@@ -249,7 +321,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "56444" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "58136" + '/');
   ws.onmessage = function (event) {
     checkedAssets = {};
     assetsToAccept = [];
