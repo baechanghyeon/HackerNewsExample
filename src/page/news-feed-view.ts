@@ -1,7 +1,7 @@
-import View from '../core/view';
-import { NewsFeedApi } from '../core/api';
-import { NewsFeed } from '../types';
-import { NEWS_URL } from '../config';
+import View from "../core/view";
+import { NewsFeedApi } from "../core/api";
+import { NewsStore } from "../types";
+import { NEWS_URL } from "../config";
 
 const template = `
 <div class="bg-gray-600 min-h-screen">
@@ -30,28 +30,34 @@ const template = `
 
 export default class NewsFeedView extends View {
   private api: NewsFeedApi;
-  private feeds: NewsFeed[];
+  private store: NewsStore;
 
-  constructor(containerId: string) {
+  constructor(containerId: string, store: NewsStore) {
     super(containerId, template);
 
-    this.feeds = window.store.feeds;
+    this.store = store;
     this.api = new NewsFeedApi(NEWS_URL);
 
-    if (window.store.feeds.length === 0) {
-      this.feeds = window.store.feeds = this.api.getData();
-      this.makeFeeds();
-    }  
+    if (!this.store.hasFeeds) {
+      this.store.setFeeds(this.api.getData());
+    }
   }
 
-  render = (page: string = '1'): void => {
-    window.store.currentPage = Number(page);
-    
-    for(let i = (window.store.currentPage - 1) * 10; i < window.store.currentPage * 10; i++) {
-      const { id, title, comments_count, user, points, time_ago, read } = this.feeds[i];
+  render = (page: string = "1"): void => {
+    this.store.currentPage = Number(page);
+
+    for (
+      let i = (this.store.currentPage - 1) * 10;
+      i < this.store.currentPage * 10;
+      i++
+    ) {
+      const { id, title, comments_count, user, points, time_ago, read } =
+        this.store.getFeed(i);
 
       this.addHtml(`
-        <div class="p-6 ${read ? 'bg-red-500' : 'bg-white'} mt-6 rounded-lg shadow-md transition-colors duration-500 hover:bg-green-100">
+        <div class="p-6 ${
+          read ? "bg-red-500" : "bg-white"
+        } mt-6 rounded-lg shadow-md transition-colors duration-500 hover:bg-green-100">
           <div class="flex">
             <div class="flex-auto">
               <a href="#/show/${id}">${title}</a>  
@@ -69,18 +75,12 @@ export default class NewsFeedView extends View {
           </div>
         </div>    
       `);
-    }  
-
-    this.setTemplateData('news_feed', this.getHtml());
-    this.setTemplateData('prev_page', String(window.store.currentPage > 1 ? window.store.currentPage - 1 : 1));
-    this.setTemplateData('next_page', String(window.store.currentPage + 1));
-  
-    this.updateView();
-  }
-
-  private makeFeeds(): void {
-    for (let i = 0; i < this.feeds.length; i++) {
-      this.feeds[i].read = false;
     }
-  }
+
+    this.setTemplateData("news_feed", this.getHtml());
+    this.setTemplateData("prev_page", String(this.store.prevPage));
+    this.setTemplateData("next_page", String(this.store.nextPage));
+
+    this.updateView();
+  };
 }
