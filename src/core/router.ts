@@ -1,17 +1,17 @@
 import { RouteInfo } from '../types';
 import View from './view';
+
 export default class Router {
+  private isStart: boolean;
   defaultRoute: RouteInfo | null;
   routeTable: RouteInfo[];
 
   constructor() {
     window.addEventListener('hashchange', this.route.bind(this));
+    
+    this.isStart = false;
     this.defaultRoute = null;
     this.routeTable = [];
-  }
-
-  go = (): void => {
-    this.route();
   }
 
   setDefaultPage(page: View, params: RegExp | null = null): void {
@@ -24,6 +24,12 @@ export default class Router {
 
   addRoutePath(path: string, page: View, params: RegExp | null = null): void {
     this.routeTable.push({ path, page, params });
+
+    if (!this.isStart) {
+      this.isStart = true;
+      // Execute next tick
+      setTimeout(this.route.bind(this), 0);
+    }
   }
 
   private route() {

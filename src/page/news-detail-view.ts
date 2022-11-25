@@ -1,7 +1,6 @@
-import View from "../core/view";
-import { NewsDetailApi } from "../core/api";
-import { NewsComment, NewsDetail, NewsStore } from "../types";
-import { CONTENT_URL } from "../config";
+import View from '../core/view';
+import { NewsDetailApi } from '../core/api';
+import { NewsComment, NewsDetail, NewsStore } from '../types';
 
 const template = `
 <div class="bg-gray-600 min-h-screen pb-8">
@@ -34,28 +33,26 @@ export default class NewsDetailView extends View {
   private store: NewsStore;
 
   constructor(containerId: string, store: NewsStore) {
-    super(containerId, template);
+    super(containerId, template);  
     this.store = store;
   }
 
-  render = (id: string): void => {
-    const api = new NewsDetailApi(CONTENT_URL.replace("@id", id));
+  render = async (id: string): Promise<void> => {
+    const api = new NewsDetailApi(id);
+    
+    const { title, content, comments } = await api.getData();
 
-    api.getDataWithPromise((data: NewsDetail) => {
-      const { title, content, comments } = data;
+    this.store.makeRead(Number(id));
+    this.setTemplateData('currentPage', this.store.currentPage.toString());
+    this.setTemplateData('title', title);
+    this.setTemplateData('content', content);
+    this.setTemplateData('comments', this.makeComment(comments));
 
-      this.store.makeRead(Number(id));
-      this.setTemplateData("currentPage", this.store.currentPage.toString());
-      this.setTemplateData("title", title);
-      this.setTemplateData("content", content);
-      this.setTemplateData("comments", this.makeComment(comments));
-
-      this.updateView();
-    });
-  };
+    this.updateView();
+  }
 
   private makeComment(comments: NewsComment[]): string {
-    for (let i = 0; i < comments.length; i++) {
+    for(let i = 0; i < comments.length; i++) {
       const comment: NewsComment = comments[i];
 
       this.addHtml(`
@@ -67,12 +64,12 @@ export default class NewsDetailView extends View {
           <p class="text-gray-700">${comment.content}</p>
         </div>      
       `);
-
+  
       if (comment.comments.length > 0) {
         this.addHtml(this.makeComment(comment.comments));
       }
     }
-
+  
     return this.getHtml();
   }
 }
